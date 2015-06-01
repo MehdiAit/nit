@@ -1,0 +1,17 @@
+public class Cl_proto extends java.lang.RuntimeException
+
+implements java.lang.Runnable,org.w3c.dom.events.EventTarget
+{
+public static int[] tab;
+private static int[][] tab2;
+
+public void <init>();
+public void <init>(java.lang.String, int);
+public void run();
+public static protected final synchronized int getTab();
+public void setTab(int[]);
+public void addEventListener(java.lang.String[], org.w3c.dom.events.EventListener, boolean);
+public boolean dispatchEvent(org.w3c.dom.events.Event) throws org.w3c.dom.events.EventException;
+public void removeEventListener(java.lang.String, org.w3c.dom.events.EventListener, boolean);
+private void unfPrivate();
+}

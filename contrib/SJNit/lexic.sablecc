@@ -1,0 +1,99 @@
+Grammar lexic;
+
+Lexer
+
+num = '0'..'9';
+scope = 'public'|'private'|'static'|'protected'|'final'|'abstract'|'volatile'|'transient'|'synchronized';
+
+digit = num+;
+throws = 'throws';
+
+prim_type = 'int'|'float'|'long'|'short'|'double'|'byte'|'char'|'boolean'|'void';
+brackets = '[]'+;
+
+cl_const = '<init>';
+cl_end_const = '<clinit>';
+
+id = ('a'..'z'|'A'..'Z'|'_'|'$')('a'..'z'|'A'..'Z'|'_'|'$'|'0'..'9')*;
+blank = (' '|'\n'|'\t'|'\r')+;
+
+Parser
+Ignored blank;
+
+class_def = 
+	{class:}scope+ 'class' class_id extcase? implcase? '{' class_core* '}';
+
+class_core = 
+	{core_field:}field_def |
+	{core_construct:}class_construct |
+	{core_end_construct}class_end_construct |
+	{core_fun:}fun_def;
+
+/******************* Class construct def *******************/
+class_end_construct =
+	{end_construct}scope* prim_type cl_end_const '('')'';';
+
+class_construct = 
+	{construct:}scope* type cl_const '(' params* ')' throwscase? ';';
+
+params = 
+	{param_type:}type generci_def? type_list*; 
+type_list = 
+	{param_type_list:}','type generci_def?; 
+
+/***********************************************************/
+
+/************************** Field def **********************/
+field_def = 
+	{field:}scope* type id ';';
+
+/***********************************************************/
+
+/*********************** Function def **********************/
+fun_def = 
+	{fun:}scope* type generci_def? id '(' params* ')' throwscase? ';';
+
+throwscase = 
+	{throws:}throws impl_id;
+
+/***********************************************************/
+
+/********************** Types def **************************/
+
+type = 
+	{simple:}simple_type | 
+	{struct:}struct_type;
+simple_type =
+	{simple_class:}class_id | 
+	{simple_prim:}primitive_type;
+
+primitive_type = prim_type;
+
+struct_type = 
+	{struct_core:}simple_type brackets;
+
+/* Genercis def */
+generci_def = 
+	{generc:}'<' generic_list '>';
+
+generic_list = 
+	{generc_param:}impl_id |
+	{generc_recur:}impl_id generci_def;
+
+/***********************************************************/
+
+extcase = 
+	{extends:}'extends' class_id;
+implcase = 
+	{interface:}'implements' impl_id;
+
+class_id = 
+	{object_type:}id class_id_list*;
+class_id_list = 
+	{object_type_list:}'.' id;
+
+impl_id = 
+	{interface_type:}class_id impl_id_list*;
+impl_id_list = 
+	{interface_type_list:}',' class_id;
+

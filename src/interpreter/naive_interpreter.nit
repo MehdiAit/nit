@@ -121,9 +121,13 @@ class NaiveInterpreter
 	# Set this mark to skip the evaluation until a labeled statement catch it with `is_escape`
 	var escapemark: nullable EscapeMark = null
 
+	#
+	#
+	var yieldmark: nullable FRAME = null
+
 	# Is a return or a break or a continue executed?
 	# Use this function to know if you must skip the evaluation of statements
-	fun is_escaping: Bool do return returnmark != null or escapemark != null
+	fun is_escaping: Bool do return returnmark != null or escapemark != null or yieldmark != null
 
 	# The value associated with the current return/break/continue, if any.
 	# Set the value when you set a escapemark.
@@ -842,6 +846,14 @@ redef class AMethPropdef
 			v.returnmark = null
 			res = v.escapevalue
 			v.escapevalue = null
+			return res
+		else if v.yieldmark == f then
+		 ############################################################################ ICI ##########################################################
+			v.yieldmark = null
+			res = v.escapevalue
+			v.escapevalue = null
+			print "Yield return : "
+			if res != null then print res
 			return res
 		end
 		return res
@@ -1693,6 +1705,19 @@ redef class AReturnExpr
 			v.escapevalue = i
 		end
 		v.returnmark = v.frame
+	end
+end
+
+redef class AYieldExpr
+	redef fun stmt(v)
+	do
+		var ne = self.n_expr
+		if ne != null then
+			var i = v.expr(ne)
+			if i == null then return
+			v.escapevalue = i
+		end
+		v.yieldmark = v.frame
 	end
 end
 

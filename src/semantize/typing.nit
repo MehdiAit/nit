@@ -1074,6 +1074,30 @@ redef class AReturnExpr
 	end
 end
 
+redef class AYieldExpr
+	redef fun accept_typing(v)
+	do
+		var nexpr = self.n_expr
+		var mpropdef = v.mpropdef
+
+		#if mpropdef isa MMethodDef then
+		#	ret_type = mpropdef.msignature.return_mtype
+		#else if mpropdef isa MAttributeDef then
+		#	ret_type = mpropdef.static_mtype
+		#else
+		#	abort
+		#end
+
+		if nexpr != null then
+			var ret_type = v.visit_expr(nexpr)
+			if ret_type != null then
+				v.visit_expr_subtype(nexpr, ret_type)
+			end
+		end
+		self.is_typed = true
+	end
+end
+
 redef class AAbortExpr
 	redef fun accept_typing(v)
 	do

@@ -865,7 +865,7 @@ extern void nitni_global_ref_decr( struct nitni_ref *ref );
 			v.add_decl("int main(int argc, char** argv) \{")
 		end
 
-		v.add "#ifndef ANDROID"
+		v.add "#if !defined(__ANDROID__) && !defined(TARGET_OS_IPHONE)"
 		v.add("signal(SIGABRT, sig_handler);")
 		v.add("signal(SIGFPE, sig_handler);")
 		v.add("signal(SIGILL, sig_handler);")
@@ -3167,8 +3167,7 @@ end
 redef class AClassdef
 	private fun compile_to_c(v: AbstractCompilerVisitor, mpropdef: MMethodDef, arguments: Array[RuntimeVariable])
 	do
-		if mpropdef == self.mfree_init then
-			assert mpropdef.mproperty.is_root_init
+		if mpropdef.mproperty.is_root_init then
 			assert arguments.length == 1
 			if not mpropdef.is_intro then
 				v.supercall(mpropdef, arguments.first.mtype.as(MClassType), arguments)

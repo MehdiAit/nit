@@ -101,6 +101,8 @@ cflags
 ldflags
 
 platform
+
+generator
 """
 
 	# Efficient set build from `primtives_annotations_list`

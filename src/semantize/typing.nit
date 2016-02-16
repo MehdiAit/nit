@@ -745,7 +745,20 @@ redef class APropdef
 	var selfvariable: nullable Variable
 end
 
+redef class MSignature
+
+	# Set return mtype
+	fun set_type(t: nullable MType)
+	do
+		return_mtype = t
+	end
+end
+
 redef class AMethPropdef
+
+	#######
+	var iterator: nullable CallSite
+
 	redef fun do_typing(modelbuilder: ModelBuilder)
 	do
 		var mpropdef = self.mpropdef
@@ -756,7 +769,9 @@ redef class AMethPropdef
 
 		var mmethoddef = self.mpropdef.as(not null)
 		var msignature = mmethoddef.msignature
+		
 		if msignature == null then return # skip error
+
 		for i in [0..msignature.arity[ do
 			var mtype = msignature.mparameters[i].mtype
 			if msignature.vararg_rank == i then
@@ -778,10 +793,19 @@ redef class AMethPropdef
 			if not v.has_loop or not v.dirty then break
 		end
 
+		var yield_annot = self.get_annotations("generator").not_empty
+		if yield_annot then
+			var mclass = v.get_mclass(self, "Iterator")
+			if mclass == null then return
+			var mtype = msignature.return_mtype
+			var array = mclass.get_mtype([mtype.as(not null)])
+			mmethoddef.msignature.set_type(array)
+		end
+
 		var post_visitor = new PostTypingVisitor(v)
 		post_visitor.enter_visit(self)
 
-		if not nblock.after_flow_context.is_unreachable and msignature.return_mtype != null then
+		if not nblock.after_flow_context.is_unreachable and msignature.return_mtype != null and yield_annot == false then
 			# We reach the end of the function without having a return, it is bad
 			v.error(self, "Error: reached end of function; expected `return` with a value.")
 		end
@@ -1078,19 +1102,19 @@ redef class AYieldExpr
 	redef fun accept_typing(v)
 	do
 		var nexpr = self.n_expr
+		var ret_type
 		var mpropdef = v.mpropdef
-
-		#if mpropdef isa MMethodDef then
-		#	ret_type = mpropdef.msignature.return_mtype
-		#else if mpropdef isa MAttributeDef then
-		#	ret_type = mpropdef.static_mtype
-		#else
-		#	abort
-		#end
-
+		if mpropdef isa MMethodDef then
+			ret_type = mpropdef.msignature.return_mtype
+		else if mpropdef isa MAttributeDef then
+			ret_type = mpropdef.static_mtype
+		else
+			abort
+		end
 		if nexpr != null then
-			var ret_type = v.visit_expr(nexpr)
-			if ret_type != null then v.visit_expr_subtype(nexpr, ret_type)
+			if ret_type != null then
+				v.visit_expr_subtype(nexpr, ret_type)
+			end
 		end
 		self.is_typed = true
 	end

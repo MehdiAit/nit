@@ -258,6 +258,18 @@ redef class MModule
 	# The primitive class `NativeArray`
 	var native_array_class: MClass = self.get_primitive_class("NativeArray") is lazy
 
+	# A primitive type of `ArrayIterator`
+	fun iterator_type(elt_type: MType): MClassType do return iterator_class.get_mtype([elt_type])
+
+	# The primitive class `ArrayIterator`
+	var iterator_class: MClass = self.get_primitive_class("ArrayIterator") is lazy
+
+	# A primitive type of `Iterator`
+	fun native_iterator_type(elt_type: MType): MClassType do return native_iterator_class.get_mtype([elt_type])
+
+	# The primitive class `Iterator`
+	var native_iterator_class: MClass = self.get_primitive_class("Iterator") is lazy
+	
 	# The primitive type `Sys`, the main type of the program, if any
 	fun sys_type: nullable MClassType
 	do

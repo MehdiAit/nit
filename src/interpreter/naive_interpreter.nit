@@ -54,6 +54,27 @@ redef class ModelBuilder
 	end
 end
 
+# Track
+class GeneratorTrack
+	# Count the yield
+	var count = 0 is writable
+
+	# Is a generator ?
+	var is_gen = false is writable
+
+	# Track current node
+	var c_node: nullable AExpr
+
+	# Bool to evaluate the next exp after yield
+	var y_next = false is writable
+
+	# Nodes evaluated
+	var eval: Map[ANode, nullable Instance] = new HashMap[ANode, Instance]
+
+	# Nodes evaluated v2
+	var eval_2: Map[ANode, ANode] = new HashMap[ANode, ANode]
+end
+
 # The visitor that interprets the Nit Program by walking on the AST
 class NaiveInterpreter
 	# The modelbuilder that know the AST and its associations with the model
@@ -69,6 +90,9 @@ class NaiveInterpreter
 
 	# The main Sys instance
 	var mainobj: nullable Instance is noinit
+
+	# Generator track
+	var gen = new GeneratorTrack
 
 	init
 	do
@@ -133,6 +157,12 @@ class NaiveInterpreter
 	# Set the value when you set a escapemark.
 	# Read the value when you catch a mark or reach the end of a method
 	var escapevalue: nullable Instance = null
+
+	# The values of yield return
+	var yield_array = new Array[Instance]
+
+	# CallSite Yield
+	var call_yield: nullable CallSite
 
 	# If there is a break/continue and is associated with `escapemark`, then return true and clear the mark.
 	# If there is no break/continue or if `escapemark` is null then return false.
@@ -304,6 +334,19 @@ class NaiveInterpreter
 		self.init_instance(res)
 		self.send(self.force_get_primitive_method("with_native", mtype), [res, nat, self.int_instance(values.length)])
 		return res
+	end
+
+	# Return a new iterator
+	fun seq_instance(values: Array[Instance], elttype: MType): Instance
+	do
+		assert not elttype.need_anchor
+		var nat = new PrimitiveInstance[Array[Instance]](mainmodule.native_iterator_type(elttype), values)
+		init_instance_primitive(nat)
+		var mtype = mainmodule.iterator_type(elttype)
+		var res = new MutableInstance(mtype)
+		self.init_instance(res)
+		# self.send(self.force_get_primitive_method("iterator", mtype), [res])
+		return nat
 	end
 
 	# Return a instance associated to a primitive class
@@ -839,6 +882,7 @@ redef class AMethPropdef
 
 	redef fun call(v, mpropdef, args)
 	do
+		if self.get_annotations("generator").not_empty then v.gen.is_gen = true
 		var f = v.new_frame(self, mpropdef, args)
 		var res = call_commons(v, mpropdef, args, f)
 		v.frames.shift
@@ -848,11 +892,20 @@ redef class AMethPropdef
 			v.escapevalue = null
 			return res
 		else if v.yieldmark == f then
-		 ############################################################################ ICI ##########################################################
+			# print "-------- Function call yield ------- "
 			v.yieldmark = null
-			res = v.escapevalue
+			res = v.yield_array.first
 			v.escapevalue = null
-			return res
+		
+			# var instance_array = v.array_instance(v.yield_array, res.mtype)
+			v.yield_array = new Array[Instance]
+
+			var iterator = v.seq_instance(v.yield_array, res.mtype)
+			
+			# var array = instance_array
+			# return array
+
+			return iterator
 		end
 		return res
 	end
@@ -1563,14 +1616,14 @@ end
 
 redef class AClassdef
 	# Execute an implicit `mpropdef` associated with the current node.
-	private fun call(v: NaiveInterpreter, mpropdef: MMethodDef, args: Array[Instance]): nullable Instance
+	private fun call(v: NaiveInterpreter, mpropdef: MMethodDef, arguments: Array[Instance]): nullable Instance
 	do
 		if mpropdef.mproperty.is_root_init then
-			assert args.length == 1
+			assert arguments.length == 1
 			if not mpropdef.is_intro then
 				# standard call-next-method
-				var superpd = mpropdef.lookup_next_definition(v.mainmodule, args.first.mtype)
-				v.call(superpd, args)
+				var superpd = mpropdef.lookup_next_definition(v.mainmodule, arguments.first.mtype)
+				v.call(superpd, arguments)
 			end
 			return null
 		else
@@ -1615,7 +1668,17 @@ redef class ABlockExpr
 	redef fun stmt(v)
 	do
 		for e in self.n_expr do
-			v.stmt(e)
+			if v.gen.is_gen and v.gen.count != 0 then
+				if e == v.gen.c_node then
+					v.stmt(e)
+					v.gen.y_next = true
+				end
+				if v.gen.y_next then
+					v.stmt(e)
+				end
+			else
+				v.stmt(e)
+			end
 			if v.is_escaping then return
 		end
 	end
@@ -1624,14 +1687,28 @@ end
 redef class AVardeclExpr
 	redef fun expr(v)
 	do
-		var ne = self.n_expr
-		if ne != null then
-			var i = v.expr(ne)
-			if i == null then return null
-			v.write_variable(self.variable.as(not null), i)
-			return i
-		end
-		return null
+		#if true then
+			var instance = null
+			var ne = self.n_expr
+
+			if ne != null then
+				var i = v.expr(ne)
+				instance = i
+
+					#if v.gen.is_gen and v.gen.eval.has_key(self) == false and instance != null then
+					# print "Var decl : Put {self}"
+					#v.gen.eval[self] = instance
+					#else if v.gen.is_gen then
+					#print "ignore"
+					#end
+
+				if i == null then return null
+				v.write_variable(self.variable.as(not null), i)
+			
+				return i
+			end
+			return null
+			#end
 	end
 end
 
@@ -1710,12 +1787,24 @@ redef class AYieldExpr
 	redef fun stmt(v)
 	do
 		var ne = self.n_expr
+		var instance = null
+
 		if ne != null then
 			var i = v.expr(ne)
 			if i == null then return
 			v.escapevalue = i
+			v.yield_array.add(i)
+			instance = i
 		end
-		v.yieldmark = v.frame
+
+		v.gen.count = 1
+		
+		if self != v.gen.c_node then
+			v.gen.y_next = false
+			v.gen.c_node = self
+			v.gen.is_gen = false
+			v.yieldmark = v.frame
+		end
 	end
 end
 

@@ -2737,6 +2737,48 @@ redef class AReturnExpr
 		v.enter_visit(_n_expr)
 	end
 end
+redef class AYieldExpr
+	init init_ayieldexpr (
+		n_kwyield: nullable TKwyield,
+		n_expr: nullable AExpr
+	)
+	do
+		_n_kwyield = n_kwyield.as(not null)
+		n_kwyield.parent = self
+		_n_expr = n_expr.as(not null)
+		n_expr.parent = self
+	end
+
+	redef fun replace_child(old_child: ANode, new_child: nullable ANode)
+	do
+		if _n_kwyield == old_child then
+			n_kwyield = new_child.as(TKwyield)
+			return
+		end
+		if _n_expr == old_child then
+			n_expr = new_child.as(AExpr)
+			return
+		end
+	end
+
+	redef fun n_kwyield=(node)
+	do
+		_n_kwyield = node
+		node.parent = self
+	end
+	redef fun n_expr=(node)
+	do
+		_n_expr = node
+		node.parent = self
+	end
+
+
+	redef fun visit_all(v: Visitor)
+	do
+		v.enter_visit(_n_kwyield)
+		v.enter_visit(_n_expr)
+	end
+end
 redef class ABreakExpr
 	init init_abreakexpr (
 		n_kwbreak: nullable TKwbreak,

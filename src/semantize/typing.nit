@@ -1090,9 +1090,7 @@ redef class AYieldExpr
 
 		if nexpr != null then
 			var ret_type = v.visit_expr(nexpr)
-			if ret_type != null then
-				v.visit_expr_subtype(nexpr, ret_type)
-			end
+			if ret_type != null then v.visit_expr_subtype(nexpr, ret_type)
 		end
 		self.is_typed = true
 	end

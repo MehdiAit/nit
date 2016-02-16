@@ -160,6 +160,9 @@ end
 class TKwdebug
 	super Token
 end
+class TKwyield
+	super Token
+end
 class TOpar
 	super Token
 end
@@ -688,6 +691,11 @@ class AReturnExpr
 	super AExpr
 	var n_kwreturn: nullable TKwreturn = null is writable
 	var n_expr: nullable AExpr = null is writable
+end
+class AYieldExpr
+	super AExpr
+	var n_kwyield: TKwyield is writable, noinit
+	var n_expr: AExpr is writable, noinit
 end
 class ABreakExpr
 	super AExpr

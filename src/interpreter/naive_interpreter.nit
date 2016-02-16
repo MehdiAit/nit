@@ -852,8 +852,6 @@ redef class AMethPropdef
 			v.yieldmark = null
 			res = v.escapevalue
 			v.escapevalue = null
-			print "Yield return : "
-			if res != null then print res
 			return res
 		end
 		return res
